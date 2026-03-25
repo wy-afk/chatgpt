@@ -668,6 +668,27 @@ let history = [];        // { role, content }
 let abortController = null;
 let isStreaming = false;
 
+// --- GROQ REDIRECTOR ---
+(function() {
+  const originalFetch = window.fetch;
+  window.fetch = function(url, options) {
+    // This looks for any request going to OpenAI
+    if (typeof url === 'string' && url.includes('api.openai.com')) {
+      // 1. Change destination to Groq
+      url = 'https://api.groq.com/openai/v1/chat/completions';
+      
+      // 2. Parse the body to change the model to a Groq-compatible one
+      const body = JSON.parse(options.body);
+      body.model = "llama-3.3-70b-versatile"; 
+      options.body = JSON.stringify(body);
+      
+      console.log("🚀 Redirecting OpenAI call to Groq...");
+    }
+    return originalFetch(url, options);
+  };
+})();
+// ------------------------
+
 // ── Init ──
 onProviderChange();
 
