@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Chat Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0e11;
+    --surface: #15161a;
+    --surface2: #1e1f25;
+    --border: #2a2b33;
+    --accent: #7effa0;
+    --accent2: #5ec4ff;
+    --accent-dim: rgba(126,255,160,0.12);
+    --text: #e8e9f0;
+    --text-dim: #6b6d7a;
+    --text-mid: #a8aab8;
+    --user-bubble: #1c2b22;
+    --user-border: #2d4a38;
+    --ai-bubble: #181920;
+    --ai-border: #25262f;
+    --danger: #ff6b6b;
+    --warn: #ffd166;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 300px;
+    min-width: 300px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: width 0.3s ease, min-width 0.3s ease;
+  }
+
+  #sidebar.collapsed { width: 0; min-width: 0; }
+
+  .sidebar-header {
+    padding: 20px 18px 14px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: 18px;
+    letter-spacing: -0.5px;
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo-dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; animation: pulse 2s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .sidebar-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .section-label {
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    font-family: var(--sans);
+  }
+
+  label {
+    display: block;
+    font-size: 11px;
+    color: var(--text-mid);
+    margin-bottom: 5px;
+    margin-top: 10px;
+  }
+  label:first-of-type { margin-top: 0; }
+
+  select, input[type="text"], input[type="number"], textarea {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.2s;
+    appearance: none;
+  }
+
+  select:focus, input:focus, textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-dim);
+  }
+
+  select option { background: var(--surface2); }
+
+  textarea {
+    resize: vertical;
+    min-height: 80px;
+    line-height: 1.5;
+  }
+
+  /* Slider */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    padding: 0;
+    border: none;
+    box-shadow: none;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+  .slider-val {
+    font-size: 11px;
+    color: var(--accent);
+    width: 34px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .btn-clear {
+    margin-top: 12px;
+    width: 100%;
+    padding: 8px;
+    background: transparent;
+    border: 1px solid var(--danger);
+    border-radius: var(--radius-sm);
+    color: var(--danger);
+    font-family: var(--mono);
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-clear:hover { background: rgba(255,107,107,0.1); }
+
+  /* API Key section */
+  .key-input-wrap { position: relative; }
+  .key-input-wrap input { padding-right: 34px; }
+  .key-eye {
+    position: absolute;
+    right: 8px; top: 50%;
+    transform: translateY(-50%);
+    background: none; border: none;
+    color: var(--text-dim); cursor: pointer;
+    font-size: 14px; line-height: 1;
+    padding: 2px;
+  }
+  .key-eye:hover { color: var(--text); }
+
+  /* ── MAIN ── */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Topbar */
+  #topbar {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    gap: 10px;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .btn-icon {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    font-size: 18px;
+    line-height: 1;
+    transition: color 0.2s, background 0.2s;
+    display: flex; align-items: center;
+  }
+  .btn-icon:hover { color: var(--text); background: var(--surface2); }
+
+  #model-badge {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--accent2);
+    background: rgba(94,196,255,0.1);
+    border: 1px solid rgba(94,196,255,0.2);
+    border-radius: 20px;
+    padding: 3px 12px;
+    margin-left: auto;
+  }
+
+  #status-indicator {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  #status-indicator.streaming { background: var(--accent); animation: pulse 1s infinite; }
+  #status-indicator.ready { background: var(--accent); animation: none; }
+  #status-indicator.error { background: var(--danger); animation: none; }
+
+  /* Chat area */
+  #chat-area {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px 0;
+    scroll-behavior: smooth;
+  }
+
+  #chat-area::-webkit-scrollbar { width: 6px; }
+  #chat-area::-webkit-scrollbar-track { background: transparent; }
+  #chat-area::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .message {
+    display: flex;
+    gap: 12px;
+    padding: 10px 24px;
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+    animation: fadeSlideIn 0.25s ease;
+  }
+
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-avatar {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 2px;
+    font-family: var(--sans);
+    font-weight: 700;
+  }
+
+  .user .msg-avatar { background: var(--user-border); color: var(--accent); }
+  .assistant .msg-avatar { background: var(--ai-border); color: var(--accent2); }
+
+  .msg-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .msg-role {
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+    font-family: var(--sans);
+    font-weight: 600;
+  }
+
+  .msg-content {
+    background: var(--ai-bubble);
+    border: 1px solid var(--ai-border);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    line-height: 1.7;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .user .msg-content {
+    background: var(--user-bubble);
+    border-color: var(--user-border);
+    color: #c8f0d4;
+  }
+
+  .cursor-blink::after {
+    content: '▊';
+    color: var(--accent);
+    animation: blink 0.7s infinite;
+    font-size: 12px;
+  }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  /* Empty state */
+  #empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    color: var(--text-dim);
+  }
+
+  .empty-icon { font-size: 48px; opacity: 0.3; }
+
+  .empty-title {
+    font-family: var(--sans);
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text-mid);
+  }
+
+  .empty-sub { font-size: 13px; color: var(--text-dim); text-align: center; max-width: 320px; line-height: 1.6; }
+
+  /* Input area */
+  #input-area {
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+
+  .input-wrap {
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+  }
+
+  #user-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    padding: 12px 14px;
+    outline: none;
+    resize: none;
+    min-height: 48px;
+    max-height: 200px;
+    line-height: 1.5;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  #user-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  #user-input::placeholder { color: var(--text-dim); }
+
+  #send-btn {
+    width: 48px; height: 48px;
+    background: var(--accent);
+    border: none;
+    border-radius: var(--radius);
+    color: #0d1a10;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.15s, background 0.2s;
+    font-weight: bold;
+  }
+  #send-btn:hover { transform: scale(1.05); background: #9effb8; }
+  #send-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; transform: none; }
+
+  #stop-btn {
+    width: 48px; height: 48px;
+    background: transparent;
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+    color: var(--danger);
+    font-size: 16px;
+    cursor: pointer;
+    display: none;
+    align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  #stop-btn:hover { background: rgba(255,107,107,0.1); }
+  #stop-btn.visible { display: flex; }
+
+  /* Token counter */
+  #token-info {
+    text-align: right;
+    font-size: 10px;
+    color: var(--text-dim);
+    margin-top: 6px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Error toast */
+  #error-toast {
+    position: fixed;
+    bottom: 100px; left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: #2a1515;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    padding: 10px 18px;
+    border-radius: var(--radius);
+    font-size: 12px;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none;
+    max-width: 400px;
+    text-align: center;
+    z-index: 100;
+  }
+  #error-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* Scrollbar for textarea */
+  textarea::-webkit-scrollbar { width: 4px; }
+  textarea::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border); margin: 4px 0; }
+
+  .provider-tag {
+    display: inline-block;
+    font-size: 9px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .tag-anthropic { background: rgba(255,167,94,0.15); color: #ffa75e; border: 1px solid rgba(255,167,94,0.3); }
+  .tag-openai { background: rgba(94,196,255,0.12); color: var(--accent2); border: 1px solid rgba(94,196,255,0.25); }
+
+  /* Thinking indicator */
+  .thinking-dots span {
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--text-dim);
+    border-radius: 50%;
+    margin: 0 2px;
+    animation: dot-bounce 1.2s infinite;
+  }
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes dot-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-6px); opacity: 1; }
+  }
+
+  /* Sidebar scrollable content */
+  #sidebar-scroll {
+    flex: 1;
+    overflow-y: auto;
+  }
+  #sidebar-scroll::-webkit-scrollbar { width: 4px; }
+  #sidebar-scroll::-webkit-scrollbar-thumb { background: var(--border); }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo"><div class="logo-dot"></div> LLM Studio</div>
+  </div>
+
+  <div id="sidebar-scroll">
+    <!-- Provider & Model -->
+    <div class="sidebar-section">
+      <div class="section-label">Provider & Model</div>
+
+      <label>Provider</label>
+      <select id="provider-select" onchange="onProviderChange()">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="openai">OpenAI (ChatGPT)</option>
+        <option value="grok">xAI (Grok)</option>
+      </select>
+
+      <label>Model</label>
+      <select id="model-select" onchange="updateBadge()"></select>
+    </div>
+
+    <!-- API Keys -->
+    <div class="sidebar-section">
+      <div class="section-label">API Keys</div>
+
+      <div id="anthropic-key-section">
+        <label>Anthropic API Key</label>
+        <div class="key-input-wrap">
+          <input type="password" id="anthropic-key" placeholder="sk-ant-...">
+          <button class="key-eye" onclick="toggleKey('anthropic-key', this)">👁</button>
+        </div>
+      </div>
+
+      <div id="openai-key-section" style="display:none;">
+        <label>OpenAI API Key</label>
+        <div class="key-input-wrap">
+          <input type="password" id="openai-key" placeholder="sk-...">
+          <button class="key-eye" onclick="toggleKey('openai-key', this)">👁</button>
+        </div>
+      </div>
+
+      <div id="grok-key-section" style="display:none;">
+        <label>xAI API Key</label>
+        <div class="key-input-wrap">
+          <input type="password" id="grok-key" placeholder="xai-...">
+          <button class="key-eye" onclick="toggleKey('grok-key', this)">👁</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- System Prompt -->
+    <div class="sidebar-section">
+      <div class="section-label">System Prompt</div>
+      <textarea id="system-prompt" placeholder="You are a helpful assistant...">You are a helpful, knowledgeable assistant. Be concise and clear.</textarea>
+    </div>
+
+    <!-- Parameters -->
+    <div class="sidebar-section">
+      <div class="section-label">Parameters</div>
+
+      <label>Temperature</label>
+      <div class="slider-row">
+        <input type="range" id="temperature" min="0" max="2" step="0.05" value="0.7"
+          oninput="document.getElementById('temp-val').textContent = parseFloat(this.value).toFixed(2)">
+        <span class="slider-val" id="temp-val">0.70</span>
+      </div>
+
+      <label>Max Tokens</label>
+      <input type="number" id="max-tokens" value="1024" min="1" max="8192">
+
+      <label>Top P</label>
+      <div class="slider-row">
+        <input type="range" id="top-p" min="0" max="1" step="0.01" value="1"
+          oninput="document.getElementById('top-p-val').textContent = parseFloat(this.value).toFixed(2)">
+        <span class="slider-val" id="top-p-val">1.00</span>
+      </div>
+
+      <label>Frequency Penalty <span style="font-size:9px;color:var(--text-dim)">(OpenAI only)</span></label>
+      <div class="slider-row">
+        <input type="range" id="freq-penalty" min="-2" max="2" step="0.1" value="0"
+          oninput="document.getElementById('fp-val').textContent = parseFloat(this.value).toFixed(1)">
+        <span class="slider-val" id="fp-val">0.0</span>
+      </div>
+
+      <label>Memory (turns)</label>
+      <input type="number" id="memory-turns" value="10" min="1" max="50">
+    </div>
+
+    <!-- Clear -->
+    <div class="sidebar-section">
+      <button class="btn-clear" onclick="clearChat()">🗑 Clear Conversation</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <!-- Topbar -->
+  <div id="topbar">
+    <button class="btn-icon" onclick="toggleSidebar()" title="Toggle sidebar">☰</button>
+    <span style="font-size:12px;color:var(--text-dim);font-family:var(--sans)">LLM Chat Studio</span>
+    <div id="model-badge">claude-sonnet-4-20250514</div>
+    <div id="status-indicator" title="Status"></div>
+  </div>
+
+  <!-- Chat -->
+  <div id="chat-area">
+    <div id="empty-state">
+      <div class="empty-icon">⬡</div>
+      <div class="empty-title">Start a conversation</div>
+      <div class="empty-sub">Configure your model and API key in the sidebar, then type a message below.</div>
+    </div>
+    <div id="messages"></div>
+  </div>
+
+  <!-- Input -->
+  <div id="input-area">
+    <div class="input-wrap">
+      <textarea id="user-input" placeholder="Type a message… (Enter to send, Shift+Enter for newline)" rows="1"
+        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button id="send-btn" onclick="sendMessage()" title="Send">↑</button>
+      <button id="stop-btn" onclick="stopStreaming()" title="Stop">■</button>
+    </div>
+    <div id="token-info">0 messages in context</div>
+  </div>
+</div>
+
+<!-- Error toast -->
+<div id="error-toast"></div>
+
+<script>
+// ── Model lists ──
+const MODELS = {
+  anthropic: [
+    { id: 'claude-opus-4-5', label: 'Claude Opus 4.5' },
+    { id: 'claude-sonnet-4-5', label: 'Claude Sonnet 4.5' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5' },
+  ],
+  openai: [
+    { id: 'gpt-4o', label: 'GPT-4o' },
+    { id: 'gpt-4o-mini', label: 'GPT-4o mini' },
+    { id: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { id: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  ],
+  grok: [
+    { id: 'grok-3', label: 'Grok 3' },
+    { id: 'grok-3-fast', label: 'Grok 3 Fast' },
+    { id: 'grok-3-mini', label: 'Grok 3 Mini' },
+    { id: 'grok-3-mini-fast', label: 'Grok 3 Mini Fast' },
+    { id: 'grok-2-1212', label: 'Grok 2' },
+  ],
+};
+
+// ── State ──
+let history = [];        // { role, content }
+let abortController = null;
+let isStreaming = false;
+
+// ── Init ──
+onProviderChange();
+
+function onProviderChange() {
+  const provider = document.getElementById('provider-select').value;
+  const sel = document.getElementById('model-select');
+  sel.innerHTML = '';
+  MODELS[provider].forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.id;
+    opt.textContent = m.label;
+    sel.appendChild(opt);
+  });
+  document.getElementById('anthropic-key-section').style.display = provider === 'anthropic' ? '' : 'none';
+  document.getElementById('openai-key-section').style.display = provider === 'openai' ? '' : 'none';
+  document.getElementById('grok-key-section').style.display = provider === 'grok' ? '' : 'none';
+  updateBadge();
+}
+
+function updateBadge() {
+  const model = document.getElementById('model-select').value;
+  document.getElementById('model-badge').textContent = model;
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('collapsed');
+}
+
+function toggleKey(id, btn) {
+  const inp = document.getElementById(id);
+  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+  else { inp.type = 'password'; btn.textContent = '👁'; }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 200) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function clearChat() {
+  history = [];
+  document.getElementById('messages').innerHTML = '';
+  document.getElementById('empty-state').style.display = '';
+  updateTokenInfo();
+  setStatus('');
+}
+
+function setStatus(state) {
+  const el = document.getElementById('status-indicator');
+  el.className = state ? state : '';
+  if (state === 'ready') setTimeout(() => el.classList.remove('ready'), 2000);
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 4000);
+  setStatus('error');
+}
+
+function updateTokenInfo() {
+  const turns = document.getElementById('memory-turns').value;
+  const msgs = Math.min(history.length, turns * 2);
+  document.getElementById('token-info').textContent = `${history.length} messages total · ${msgs} in context (${turns} turns)`;
+}
+
+// ── Append message bubble ──
+function appendMessage(role, content) {
+  document.getElementById('empty-state').style.display = 'none';
+  const container = document.getElementById('messages');
+
+  const wrap = document.createElement('div');
+  wrap.className = `message ${role}`;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = role === 'user' ? 'U' : 'AI';
+
+  const body = document.createElement('div');
+  body.className = 'msg-body';
+
+  const roleLabel = document.createElement('div');
+  roleLabel.className = 'msg-role';
+  roleLabel.textContent = role === 'user' ? 'You' : document.getElementById('model-select').value;
+
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'msg-content';
+  contentDiv.textContent = content;
+
+  body.appendChild(roleLabel);
+  body.appendChild(contentDiv);
+  wrap.appendChild(avatar);
+  wrap.appendChild(body);
+  container.appendChild(wrap);
+
+  scrollToBottom();
+  return contentDiv;
+}
+
+function appendThinking() {
+  document.getElementById('empty-state').style.display = 'none';
+  const container = document.getElementById('messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'message assistant';
+  wrap.id = 'thinking-bubble';
+
+  const avatar = document.createElement('div');
+  avatar.className = 'msg-avatar';
+  avatar.textContent = 'AI';
+
+  const body = document.createElement('div');
+  body.className = 'msg-body';
+
+  const contentDiv = document.createElement('div');
+  contentDiv.className = 'msg-content';
+  contentDiv.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+
+  body.appendChild(contentDiv);
+  wrap.appendChild(avatar);
+  wrap.appendChild(body);
+  container.appendChild(wrap);
+  scrollToBottom();
+  return wrap;
+}
+
+function scrollToBottom() {
+  const area = document.getElementById('chat-area');
+  area.scrollTop = area.scrollHeight;
+}
+
+function stopStreaming() {
+  if (abortController) { abortController.abort(); }
+  setStreaming(false);
+}
+
+function setStreaming(val) {
+  isStreaming = val;
+  document.getElementById('send-btn').disabled = val;
+  document.getElementById('stop-btn').classList.toggle('visible', val);
+  setStatus(val ? 'streaming' : 'ready');
+}
+
+// ── Build context window ──
+function buildMessages() {
+  const turns = parseInt(document.getElementById('memory-turns').value) || 10;
+  const limit = turns * 2;
+  return history.slice(-limit).map(m => ({ role: m.role, content: m.content }));
+}
+
+// ── Main send ──
+async function sendMessage() {
+  if (isStreaming) return;
+  const input = document.getElementById('user-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const provider = document.getElementById('provider-select').value;
+  const keyId = provider === 'anthropic' ? 'anthropic-key' : provider === 'openai' ? 'openai-key' : 'grok-key';
+  const apiKey = document.getElementById(keyId).value.trim();
+  if (!apiKey) { showError('Please enter your API key in the sidebar.'); return; }
+
+  // Add user message
+  history.push({ role: 'user', content: text });
+  appendMessage('user', text);
+  input.value = '';
+  input.style.height = 'auto';
+  updateTokenInfo();
+
+  // Show thinking
+  const thinkingEl = appendThinking();
+  setStreaming(true);
+  abortController = new AbortController();
+
+  try {
+    let fullText = '';
+    let contentEl = null;
+
+    if (provider === 'anthropic') {
+      fullText = await streamAnthropic(apiKey, buildMessages(), (chunk) => {
+        if (!contentEl) {
+          thinkingEl.remove();
+          contentEl = appendMessage('assistant', '');
+          contentEl.classList.add('cursor-blink');
+        }
+        contentEl.textContent += chunk;
+        scrollToBottom();
+      });
+    } else if (provider === 'openai') {
+      fullText = await streamOpenAI(apiKey, buildMessages(), (chunk) => {
+        if (!contentEl) {
+          thinkingEl.remove();
+          contentEl = appendMessage('assistant', '');
+          contentEl.classList.add('cursor-blink');
+        }
+        contentEl.textContent += chunk;
+        scrollToBottom();
+      });
+    } else {
+      fullText = await streamGrok(apiKey, buildMessages(), (chunk) => {
+        if (!contentEl) {
+          thinkingEl.remove();
+          contentEl = appendMessage('assistant', '');
+          contentEl.classList.add('cursor-blink');
+        }
+        contentEl.textContent += chunk;
+        scrollToBottom();
+      });
+    }
+
+    if (contentEl) contentEl.classList.remove('cursor-blink');
+    else { thinkingEl.remove(); appendMessage('assistant', fullText); }
+
+    history.push({ role: 'assistant', content: fullText });
+    updateTokenInfo();
+
+  } catch (err) {
+    thinkingEl.remove();
+    if (err.name !== 'AbortError') showError(err.message || 'Unknown error');
+    // Remove user msg from history on error
+    history.pop();
+    updateTokenInfo();
+  }
+
+  setStreaming(false);
+  abortController = null;
+}
+
+// ── Anthropic streaming ──
+async function streamAnthropic(apiKey, messages, onChunk) {
+  const systemPrompt = document.getElementById('system-prompt').value.trim();
+  const temperature = parseFloat(document.getElementById('temperature').value);
+  const maxTokens = parseInt(document.getElementById('max-tokens').value) || 1024;
+  const topP = parseFloat(document.getElementById('top-p').value);
+
+  const body = {
+    model: document.getElementById('model-select').value,
+    max_tokens: maxTokens,
+    temperature,
+    top_p: topP,
+    stream: true,
+    messages,
+  };
+  if (systemPrompt) body.system = systemPrompt;
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(body),
+    signal: abortController.signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`Anthropic error ${res.status}: ${err?.error?.message || res.statusText}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+  let buf = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const evt = JSON.parse(data);
+        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+          full += evt.delta.text;
+          onChunk(evt.delta.text);
+        }
+      } catch {}
+    }
+  }
+  return full;
+}
+
+// ── Grok streaming (xAI — OpenAI-compatible) ──
+async function streamGrok(apiKey, messages, onChunk) {
+  const systemPrompt = document.getElementById('system-prompt').value.trim();
+  const temperature = parseFloat(document.getElementById('temperature').value);
+  const maxTokens = parseInt(document.getElementById('max-tokens').value) || 1024;
+  const topP = parseFloat(document.getElementById('top-p').value);
+
+  const allMessages = [];
+  if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
+  allMessages.push(...messages);
+
+  const body = {
+    model: document.getElementById('model-select').value,
+    max_tokens: maxTokens,
+    temperature,
+    top_p: topP,
+    stream: true,
+    messages: allMessages,
+  };
+
+  const res = await fetch('https://api.x.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+    signal: abortController.signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`xAI error ${res.status}: ${err?.error?.message || res.statusText}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+  let buf = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const evt = JSON.parse(data);
+        const delta = evt.choices?.[0]?.delta?.content;
+        if (delta) { full += delta; onChunk(delta); }
+      } catch {}
+    }
+  }
+  return full;
+}
+async function streamOpenAI(apiKey, messages, onChunk) {
+  const systemPrompt = document.getElementById('system-prompt').value.trim();
+  const temperature = parseFloat(document.getElementById('temperature').value);
+  const maxTokens = parseInt(document.getElementById('max-tokens').value) || 1024;
+  const topP = parseFloat(document.getElementById('top-p').value);
+  const freqPenalty = parseFloat(document.getElementById('freq-penalty').value);
+
+  const allMessages = [];
+  if (systemPrompt) allMessages.push({ role: 'system', content: systemPrompt });
+  allMessages.push(...messages);
+
+  const body = {
+    model: document.getElementById('model-select').value,
+    max_tokens: maxTokens,
+    temperature,
+    top_p: topP,
+    frequency_penalty: freqPenalty,
+    stream: true,
+    messages: allMessages,
+  };
+
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+    signal: abortController.signal,
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(`OpenAI error ${res.status}: ${err?.error?.message || res.statusText}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let full = '';
+  let buf = '';
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buf += decoder.decode(value, { stream: true });
+    const lines = buf.split('\n');
+    buf = lines.pop();
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const data = line.slice(6).trim();
+      if (data === '[DONE]') continue;
+      try {
+        const evt = JSON.parse(data);
+        const delta = evt.choices?.[0]?.delta?.content;
+        if (delta) { full += delta; onChunk(delta); }
+      } catch {}
+    }
+  }
+  return full;
+}
+</script>
+</body>
+</html>
