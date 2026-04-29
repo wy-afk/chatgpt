@@ -723,38 +723,50 @@ function executeTool(name, input){
 //  AUTO ROUTING
 // ════════════════════════════════════════════════
 async function autoRoute(userMessage){
-  const anthropicKey=getKey('anthropic');
-  if(!anthropicKey) throw new Error('Auto-routing needs Anthropic API key');
-  setStatus('routing');
+  const text = userMessage.toLowerCase();
 
-  const routePrompt=`You are a routing agent. Given a user message, pick the BEST model.
-Rules:
-- Code, technical, logic, math → llama-3.3-70b-versatile (groq)
-- Creative writing, chat, general → llama-3.1-8b-instant (groq)
-- Real-time events, news, opinions → llama-3.3-70b-versatile (groq)
-- Broad knowledge, research, analysis → moonshotai/kimi-k2-instruct (nvidia)
+  // 🔢 math → use strong model
+  if (text.includes("calculate") || text.match(/[0-9]+\s*[\+\-\*\/]\s*[0-9]+/)) {
+    return {
+      provider: "groq",
+      model: "llama-3.3-70b-versatile",
+      reason: "Math / calculation task"
+    };
+  }
 
-Respond ONLY with JSON: {"provider":"groq|nvidia","model":"model-id","reason":"one sentence"}
+  // 🌤 weather / time
+  if (text.includes("weather") || text.includes("time")) {
+    return {
+      provider: "groq",
+      model: "llama-3.3-70b-versatile",
+      reason: "Real-world info task"
+    };
+  }
 
-User message: "${userMessage.substring(0,300)}"`;
+  // ✍️ creative writing
+  if (text.includes("poem") || text.includes("story") || text.includes("creative")) {
+    return {
+      provider: "groq",
+      model: "llama-3.1-8b-instant",
+      reason: "Creative task"
+    };
+  }
 
-  const groqKey=getKey('groq');
-  const nvidiaKey=getKey('nvidia');
-  const routerKey=groqKey||nvidiaKey;
-  if(!routerKey) throw new Error('Auto-routing needs a Groq or NVIDIA key');
-  const routerEndpoint=groqKey?'https://api.groq.com/openai/v1/chat/completions':'https://integrate.api.nvidia.com/v1/chat/completions';
-  const routerModel=groqKey?'llama-3.1-8b-instant':'meta/llama-3.3-70b-instruct';
+  // 💻 coding / logic
+  if (text.includes("code") || text.includes("algorithm")) {
+    return {
+      provider: "groq",
+      model: "llama-3.3-70b-versatile",
+      reason: "Technical task"
+    };
+  }
 
-  const res=await fetch(routerEndpoint,{
-    method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+routerKey},
-    body:JSON.stringify({model:routerModel,max_tokens:150,messages:[{role:'user',content:routePrompt}]})
-  });
-  if(!res.ok) throw new Error('Router error '+res.status);
-  const data=await res.json();
-  const text=data.content[0].text.trim();
-  const json=JSON.parse(text.replace(/```json|```/g,'').trim());
-  return json; // {provider, model, reason}
+  // default
+  return {
+    provider: "groq",
+    model: "llama-3.3-70b-versatile",
+    reason: "General task"
+  };
 }
 
 // ════════════════════════════════════════════════
@@ -794,11 +806,32 @@ function removeImage(i){attachedImages.splice(i,1);renderImagePreviews();}
 // Build multimodal content array for user message
 function buildUserContent(text){
   if(!attachedImages.length) return text;
-  const parts=[];
+
+  const provider = document.getElementById('provider-select').value;
+  const autoMode = document.getElementById('routing-mode').value === 'auto';
+
+  const supportsVision =
+    provider === 'openai' ||
+    provider === 'anthropic';
+
+  if(!supportsVision || autoMode){
+    return text || "Describe this image";
+  }
+
+  const parts = [];
+
   attachedImages.forEach(img=>{
-    parts.push({type:'image',source:{type:'base64',media_type:img.mediaType,data:img.base64}});
+    parts.push({
+      type:'image',
+      source:{
+        type:'base64',
+        media_type:img.mediaType,
+        data:img.base64
+      }
+    });
   });
-  parts.push({type:'text',text});
+
+  parts.push({type:'text', text});
   return parts;
 }
 
